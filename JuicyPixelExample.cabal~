@@ -1,0 +1,89 @@
+name:                JuicyPixelExample 
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/githubuser/myproject#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2019 Author name here
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+extra-source-files:  README.md
+
+executable             JuicyPixelExample 
+  hs-source-dirs:      src
+  main-is:             Main.hs
+  ghc-options:         -O2
+  cpp-options:         -DTEST
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5,
+                       regex-compat,
+                       unix,
+                       text,
+                       time,
+                       split,
+                       directory,
+                       filepath,
+                       process,
+                       random,
+                       bytestring,
+                       containers,
+                       regex-tdfa,
+                       unordered-containers,
+                       vector,
+                       array,
+                       pretty-simple,
+                       regex-posix,
+                       regex-base,
+                       utf8-string,
+                       raw-strings-qq,
+                       sqlite-simple,
+                       wai,
+                       aeson,
+                       network-uri,
+                       http-types,
+                       warp,
+                       turtle,
+                       websockets,
+                       wai-websockets,
+                       wai-predicates,
+                       regex,
+                       wai-extra,
+                       blaze-builder,
+                       safe,
+                       wai-util,
+                       wai-session,
+                       http-conduit,
+                       word8,
+                       email-validate,
+                       data-default,
+                       neat-interpolation,
+                       hedis,
+                       -- GLFW,
+                       OpenGL,
+                       GLFW-b,
+                       bindings-GLFW,
+                       ghcid,
+                       hashable,
+                       mini-egison,
+                       unix-time,
+                       -- build error on ghc-8.10.3
+                       -- diagrams,
+                       -- diagrams-lib,
+                       -- diagrams-svg,
+                       -- diagrams,
+                       mysql-haskell,
+                       io-streams,
+                       ansi-terminal,
+                       linear,
+                       hint,
+                       -- FTGL,
+                       GLUT,
+                       rainbow,
+                       uri-encode,
+                       pretty-terminal,
+                       strict-io,
+                       ghci-websockets
