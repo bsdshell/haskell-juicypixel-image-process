@@ -111,9 +111,9 @@ removeBackground = pixelMap $ \(PixelRGBA8 r g b a) ->
                    PixelRGBA8 r g b (r < 15 && g < 15 && b < 15 ? 0 $ a)
 
 
-changeColor :: Image PixelRGBA8 -> Image PixelRGBA8
-changeColor = pixelMap $ \(PixelRGBA8 r g b a) -> 
-              PixelRGBA8 0 (g - 50) (b - 50) a 
+changeColor :: (Int, Int, Int) -> Image PixelRGBA8 -> Image PixelRGBA8
+changeColor (x, y, z) = pixelMap $ \(PixelRGBA8 r g b a) -> PixelRGBA8 (r + fi x) (g + fi y) (b + fi z) a 
+
 main :: IO ()
 main = do
     argList <- getArgs
@@ -166,10 +166,15 @@ main = do
     dynamicImage <- readImage "ex4.png" 
     let image = convertRGBA8 <$> dynamicImage
     -- let modified = negative <$> image
-    let modified = changeColor <$> image
-    case modified of 
-            Left err -> print err
-            -- Right image -> saveJpgImage 100 "ex4.png" $ ImageRGBA8 image
-            Right image -> savePngImage "ex4_x.png" $ ImageRGBA8 image
+    mapM_ (\x -> do
+      ls <- randomIntList 10 (1, 200) 
+      let t = (fi $ ls !! 0, fi $ ls !! 1, fi $ ls !! 2)
+      let modified = changeColor t <$> image
+      let imgName = "ex4_xx" ++ (show x) ++ ".png"
+      case modified of 
+              Left err -> print err
+              -- Right image -> saveJpgImage 100 "ex4.png" $ ImageRGBA8 image
+              Right image -> savePngImage imgName $ ImageRGBA8 image
+          ) [0..10]
 
     print "ok"
