@@ -19,16 +19,6 @@ import qualified Control.Monad.IO.Class as CM
 -- import AronGraphic
 -- import Graphics.Rendering.OpenGL            as               GL
 
-#if 0
-class MyType a b c where
-  rmInx :: a -> b -> c
-
-instance MyType Int [a] [a] where
-  rmInx n cx = removeIndex n cx
-
-instance MyType Integer [a] [a] where
-  rmInx n cx = removeIndex (fi n) cx
-#endif
 
 countNum x = map (\x -> (head x, length x)) $ groupBy (\a b -> a == b)  $ sort x
 
@@ -39,6 +29,7 @@ countNum x = map (\x -> (head x, length x)) $ groupBy (\a b -> a == b)  $ sort x
     KEY: Integer to Num
     Better name
 -}   
+{-
 integerToNum::(Integral a, Num b) => a -> b
 integerToNum = fromIntegral
 
@@ -115,7 +106,7 @@ integerToNum = fromIntegral
 (↑) n cx = take n cx
 (↓)::Int -> [a] -> [a]
 (↓) n cx = drop n cx
-
+-}
 
 {-|
    @
@@ -128,7 +119,7 @@ integerToNum = fromIntegral
    moveFromTo2 (f, iv) speed count $ drawRect2d (0.1, 0.1) >> drawRect2d (0.2, 0.2)
    @
 -}
-#if 0
+{-
 moveFromTo2::(GLdouble -> GLdouble, (GLdouble, GLdouble)) -> Integer -> Integer -> IO() -> IO()
 moveFromTo2 (f, (x0, x1)) speed count draw = do
   let n = 100.0::GLdouble
@@ -140,13 +131,13 @@ moveFromTo2 (f, (x0, x1)) speed count draw = do
   draw
   where
     (!) = (!!)           
-#endif
+-}
 
 fun44::Int -> Int
 fun44 x = x + 2
 
 
-#if 0
+{-
 
 {-|
    Select the image =>
@@ -184,7 +175,7 @@ drawCylinder = do
                  in β*0.05
         -- in drawParamSurfaceN fx fy fz n
         in drawParamSurfaceN fx fy fz n
-#endif
+-}
 
 xIntToFloat::Int -> Float
 xIntToFloat = fromIntegral
