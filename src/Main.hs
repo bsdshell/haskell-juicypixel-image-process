@@ -2,8 +2,10 @@
 -- script
 -- #!/usr/bin/env runhaskell -i/Users/cat/myfile/bitbucket/haskelllib
 -- {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-} 
+{-# LANGUAGE ScopedTypeVariables #-}
 -- import Turtle
 -- echo "turtle"
 
@@ -37,6 +39,7 @@ import qualified Text.Regex.TDFA as TD
 import AronModule 
 
 import           Codec.Picture
+import           Codec.Picture.Extra hiding (rotateLeft90, rotateRight90)
 import           Codec.Picture.Drawing
 import           Codec.Picture.Types
 import           Control.Monad.Primitive
@@ -191,7 +194,7 @@ mergeSameImageX alpha fp1 fp2 fp3 = do
   beta = 0.2
   -- blend (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) = PixelRGBA8 (round $ sqrt $ rf (r0 * r0 + r1 * r1)) 0 0 (a0 + a1)
   blend (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) = PixelRGBA8 (r0 * r0 + r1 * r1) 0 0 (a0 + a1)
-  -- blend (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) = PixelRGBA8 (r0 + r1) (g0 + g1) (b0 + b1) (a0 + a1)
+  -- blend (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) = PixelRGBA8 (r0 + r1) (g0 + g3) (b0 + b1) (a0 + a1)
 
 
 
@@ -246,9 +249,53 @@ rotateRight90 :: Pixel a => Image a -> Image a
 rotateRight90 img@Image {..} = generateImage gen imageHeight imageWidth
   where
     gen x y = pixelAt img y (imageHeight - 1 - x)
-
+  
 {-|
 
+  KEY: scale image, bilinear interpolation
+-}
+scaleImage :: Int -> Int -> Image PixelRGBA8 -> Image PixelRGBA8 
+scaleImage width height img@Image {..} = generateImage (fun img) width height
+  where
+    -- fun img x y = p00
+    fun :: Image PixelRGBA8 -> Int -> Int -> PixelRGBA8
+    fun imgx x y = p00
+                where
+                  w = imageWidth
+                  h = imageHeight
+                  rx = fi w/ fi width :: Float
+                  ry = fi h/fi height :: Float
+                  xx = fi x * rx
+                  yy = fi y * ry
+
+                  -- dx = rx - (fi . floor) rx
+                  -- dy = ry - (fi . floor) ry
+                  (x', y') = (floor $ rf xx, floor $ rf yy)
+                  dx = xx - fi x'
+                  dy = yy - fi y'  
+                  -- (x', y') = (floor $ fi x * rx, floor $ fi y * ry)
+                  qxy  = sumPixel (mulPixel (1 - rf dx) pxy) (mulPixel (rf dx) px1y)
+                  qxy1 = sumPixel (mulPixel (1 - rf dx) pxy1) (mulPixel (rf dx) px1y1)
+                  p00  = sumPixel (mulPixel (1 - rf dy) qxy) (mulPixel (rf dy) qxy1)
+                  pxy   = pixelAt imgx x' y'
+                  px1y  = let xInx = (w - 1)  `min` (x' + 1) in pixelAt imgx xInx y'
+                  pxy1  = let yInx = (y' + 1) `min` (h - 1)  in pixelAt imgx x' yInx
+                  px1y1 = let xInx = (x' + 1) `min` (w - 1)
+                              yInx = (y' + 1) `min` (h - 1)
+                          in pixelAt imgx xInx yInx
+
+    sumPixel (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) = PixelRGBA8
+                                                                      (m `min` (r0 + r1))
+                                                                      (m `min` (g0 + g1))
+                                                                      (m `min` (b0 + b1))
+                                                                      (m `min` (a0 + a1))
+                                                                 where
+                                                                   m = maxBound :: (PixelBaseComponent PixelRGBA8)
+
+    mulPixel :: Float -> PixelRGBA8 -> PixelRGBA8
+    mulPixel x (PixelRGBA8 r0 g0 b0 a0) = PixelRGBA8 (floor $ rf r0 * x) (floor $ rf g0 * x) (floor $ rf b0 * x) (floor $ rf a0 * x)
+
+{-|
   KEY: flip image vertically
 
   @
@@ -440,14 +487,14 @@ intensity fp1 fp2 = do
   -- Genrate new image by blending pixel-by-pixel
   let newImg1 = generateImage 
                   -- (\x y -> intensityPixel $ pixelAt rgbaImg1 x y) 
-                  (\x y -> let p0 = pixelAt rgbaImg1 x y; p1 = pixelAt rgbaImg1 (x + 1) y  in gradient p0 p1) 
+                  (\x y -> let p0 = pixelAt rgbaImg1 x y; p1 = pixelAt rgbaImg1 (x + 1) y  in gradientMag p0 p1) 
                   (w1 - 1) 
                   h1
   -}
   
   let newImg1 = generateImage 
                   -- (\x y -> intensityPixel $ pixelAt rgbaImg1 x y) 
-                  (\x y -> let p0 = pixelAt rgbaImg1_rot x y; p1 = pixelAt rgbaImg1_rot (x + 1) y  in gradient p0 p1) 
+                  (\x y -> let p0 = pixelAt rgbaImg1_rot x y; p1 = pixelAt rgbaImg1_rot (x + 1) y  in gradientMag p0 p1) 
                   (w1' - 1)
                   h1'
   let rgbaImg1_rot_left = rotateLeft90 newImg1
@@ -466,22 +513,48 @@ blendPixel :: Float -> PixelRGBA8 -> PixelRGBA8 -> PixelRGBA8
 blendPixel alpha (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) = PixelRGBA8 r0 g0 b0 a0
 
 intensityPixel :: PixelRGBA8 -> PixelRGBA8
-intensityPixel (PixelRGBA8 r0 g0 b0 a0) = PixelRGBA8 (round $ rf rI * rf r0 + rf gI * rf g0 + rf bI * rf b0) 0 0 a0 
+intensityPixel (PixelRGBA8 r0 g0 b0 a0) = PixelRGBA8 (round $ rI * r0' + gI * g0' + bI * b0') 0 0 a0 
   where
+    r0' = rf r0
+    g0' = rf g0
+    b0' = rf b0
     rI = 0.299
     gI = 0.587
-    bI = (1 - rI - gI) 
+    bI = 1 - rI - gI
 
-gradient :: PixelRGBA8 -> PixelRGBA8 -> PixelRGBA8 
-gradient (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) = PixelRGBA8 intdiff 0 0 a0 
+{-|
+  KEY: gradient magnitude
+-}
+gradientMag :: PixelRGBA8 -> PixelRGBA8 -> PixelRGBA8 
+gradientMag (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) = PixelRGBA8 diff 0 0 a0 
   where
+    r0' = rf r0
+    g0' = rf g0
+    b0' = rf b0
+    r1' = rf r1
+    g1' = rf g1
+    b1' = rf b1
     rI = 0.299
     gI = 0.587
-    bI = (1 - rI - gI) 
-    p0 = intensityPixel 
-    inten0 = round $ rf rI * rf r0 + rf gI * rf g0 + rf bI * rf b0
-    inten1 = round $ rf rI * rf r1 + rf gI * rf g1 + rf bI * rf b1
-    intdiff = inten1 - inten0
+    bI = 1 - rI - gI 
+    inten0 = round $ sqrt $ rI * r0' + gI * g0' + bI * b0'
+    inten1 = round $ sqrt $ rI * r1' + gI * g1' + bI * b1'
+    diff = inten1 - inten0
+
+addp ::
+  forall a.
+  ( Pixel a,
+    Bounded (PixelBaseComponent a),
+    Integral (PixelBaseComponent a)
+  ) =>
+  a ->
+  a ->
+  a
+addp = mixWith (const f)
+  where
+    f x y =
+      fromIntegral $
+        (maxBound :: PixelBaseComponent a) `min` (fromIntegral x + fromIntegral y)
 
 mainX :: IO ()
 mainX = do
@@ -548,6 +621,7 @@ mainX = do
 
     print "ok"
   
+
 main :: IO ()
 main = do
   let alpha = 0.3
@@ -576,3 +650,15 @@ main = do
   mergeSameImageX 0.1 "intensity.png" "intensity_y.png" "int.png"
   saveImage (imagePadRight 100) "ex4_x.png" "ex4_xx.png"
   saveImage (imagePadDown 100)  "ex4_x.png"  "ex4_xxx.png"
+
+  img1 <- readImage "ex4.png" 
+  let rgbaImg1 = convertRGBA8 (either error id img1)
+  let (w1, h1) = (imageWidth rgbaImg1, imageHeight rgbaImg1)
+  -- saveImage (scaleBilinear (div w1 10) (div h1 10)) "ex4.png" "ex4_scale1.png"
+  -- saveImage (scaleBilinear (w1 * 3) (h1 * 3)) "ex4.png" "ex4_scale1.png"
+  let px = addp (PixelRGBA8 1 2 3 4) (PixelRGBA8 10 20 30 40) 
+  print px
+  -- saveImage (scaleImage (div w1 4) (div h1 4)) "ex4.png" "ex4_bilinear.png"
+  -- saveImage (scaleImage (div w1 10) (div h1 10)) "ex4.png" "ex4_bilinear.png"
+  saveImage (scaleImage (round $ rf $ fi w1 * rf 0.9) (round $ rf $ fi h1 * rf 1.9)) "ex4.png" "ex4_bilinear.png"
+  

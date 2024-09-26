@@ -99,6 +99,7 @@ executable             haskell-juicypixel-image-process
                        haskeline,
                        formatting,
                        JuicyPixels,
+                       JuicyPixels-extra,
                        juicy-draw,
                        primitive,
                        orthotope,
