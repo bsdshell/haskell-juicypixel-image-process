@@ -43,7 +43,7 @@ import           Codec.Picture.Extra hiding (rotateLeft90, rotateRight90)
 import           Codec.Picture.Drawing
 import           Codec.Picture.Types
 import           Control.Monad.Primitive
-
+import           Data.Word8
 
 geneImg::IORef Int -> Int -> Int -> IO()
 geneImg ref w h = do
@@ -221,9 +221,11 @@ saveImage :: (Image PixelRGBA8 -> Image PixelRGBA8) -> FilePath -> FilePath -> I
 saveImage f fp1 fp2 = do
   img1 <- readImage fp1
   let rgbaImg1 = convertRGBA8 (either error id img1)
-  let img = f rgbaImg1 
-  writePng fp2 img 
-
+  let img = f rgbaImg1
+  savePngImage fp2 (ImageRGBA8 img)
+  -- writePng fp2 img
+  
+  
 {-|
 
   KEY: rotate left, rotate image 90 to the left, rotate 90 to the left
@@ -249,10 +251,38 @@ rotateRight90 :: Pixel a => Image a -> Image a
 rotateRight90 img@Image {..} = generateImage gen imageHeight imageWidth
   where
     gen x y = pixelAt img y (imageHeight - 1 - x)
-  
+
+{-|
+
+  KEY: image grayscale, gray scale
+
+  @
+  saveImage toGrayScale "bigboss.png" "bigboss_grayscale1.png"
+  @
+-}
+toGrayScale :: Image PixelRGBA8 -> Image PixelRGBA8
+toGrayScale img@Image {..} = generateImage (\x y -> gray $ pixelAt img x y) imageWidth imageHeight
+  where
+    gray :: PixelRGBA8 -> PixelRGBA8
+    gray (PixelRGBA8 r g b a) = PixelRGBA8 gc gc gc a
+      where
+        gc = round $ rI * r' + gI * g' + bI * b'
+        r' = fi r
+        g' = fi g
+        b' = fi b
+        rI = 0.299 :: Float
+        gI = 0.587 :: Float
+        bI = 1.0 - rI - gI
+
 {-|
 
   KEY: scale image, bilinear interpolation
+
+  <http://localhost/pdf/bilinear_interpo_upsampling_cs_toronto_edu.pdf PDF>
+  <https://hackage.haskell.org/package/JuicyPixels-extra-0.6.0/docs/src/Codec.Picture.Extra.html#scaleBilinear scaleBilinear>
+
+  * The code is based on 'scaleBilinear'
+
 -}
 scaleImage :: Int -> Int -> Image PixelRGBA8 -> Image PixelRGBA8 
 scaleImage width height img@Image {..} = generateImage (fun img) width height
@@ -471,36 +501,114 @@ blendImageV alpha fp1 fp2 blendfp = do
   writePng outfp1 newImg1
   writePng outfp2 newImg2
   mergeSameImage alpha outfp1 outfp2 blendfp 
-
-intensity:: FilePath -> FilePath -> IO ()
-intensity fp1 fp2 = do
+  
+{-|
+   KEY: canny edge detection, image edge, detect edge
+   <http://localhost/pdf/bilinear_interpo_upsampling_cs_toronto_edu.pdf Bilinear_Interpolation>
+-}
+cannyEdge:: FilePath -> FilePath -> IO ()
+cannyEdge fp1 fp2 = do
   img1 <- readImage fp1
   let rgbaImg1 = convertRGBA8 (either error id img1)
   let rgbaImg1_rot = rotateRight90 rgbaImg1
   -- Get image dimension
   let (w1, h1) = (imageWidth rgbaImg1, imageHeight rgbaImg1)
-  let (w1', h1') = (imageWidth rgbaImg1_rot, imageHeight rgbaImg1_rot)
-  fw "(width1, height1)"
+  fw "(w1, h1)"
   print (w1, h1)
+  let (w1', h1') = (imageWidth rgbaImg1_rot, imageHeight rgbaImg1_rot)
+  fw "(w1', h1')"
+  print (w1, h1)
+  
+  -- Genrate new image by blending pixel-by-pixel
+  let mb = maxBound :: (PixelBaseComponent PixelRGBA8)
+  
+  let newImg1 = generateImage 
+                  (\x y ->
+                           let px = pixelAt rgbaImg1 x y
+                               px1 = pixelAt rgbaImg1 ((x + 1) `min` (w1 - 1)) y
+                               py1 = pixelAt rgbaImg1 x ((y + 1) `min` (h1 - 1))
+                               gx = gradient px px1
+                               gy = gradient px py1
+
+                                          -- (x - 1, y - 1)
+                               pix0 = let ax0 =  pixelIntent $ pixelAt rgbaImg1 x ((y - 1) `max` 0)
+                                          xy0 = pixelIntent $ pixelAt rgbaImg1 x y
+                                          ay0 =  pixelIntent $ pixelAt rgbaImg1 ((x - 1) `min` (w1 - 1)) y
+                                          dx0 = xy0 - ax0
+                                          dy0 = xy0 - ay0
+                                          gm0 = sqrt $ dx0^2 + dy0^2
+
+                                          -- (x, y)
+                                          ax1 = pixelIntent $ pixelAt rgbaImg1 ((x + 1) `min` (w1 - 1)) y
+                                          ay1 = pixelIntent $ pixelAt rgbaImg1 x ((y + 1) `min` (h1 - 1))
+                                          dx1 = ax1 - xy0
+                                          dy1 = ay1 - xy0
+                                          gm1 = sqrt $ dx1^2 + dy1^2
+
+                                          -- (x+1, y+1)
+                                          ax2 = pixelIntent $ pixelAt rgbaImg1 ((x + 2) `min` (w1 - 1)) ((y + 1) `min` (h1 - 1))
+                                          xy2 = pixelIntent $ pixelAt rgbaImg1 ((x + 1) `min` (w1 - 1)) ((y + 1) `min` (h1 - 1))
+                                          ay2 = pixelIntent $ pixelAt rgbaImg1 ((x + 1) `min` (w1 - 1)) ((y + 2) `min` (h1 - 1))
+                                          dx2 = ax2 - ax2
+                                          dy2 = ay2 - ay2
+                                          gm2 = sqrt $ dx2^2 + dy2^2
+                                      in  gm1 >= max gm0 gm2 ? pixelAt rgbaImg1 x y $ PixelRGBA8 0 0 0 255
+
+                               -- horizontal line
+                               pix1 = let ax0 =  pixelIntent $ pixelAt rgbaImg1 ((x - 1) `max` 0) y
+                                          xy0 =  pixelIntent $ pixelAt rgbaImg1 x y
+                                          ax10 =  pixelIntent $ pixelAt rgbaImg1 ((x + 1) `min` (w1 - 1)) y
+                                          ax20 =  pixelIntent $ pixelAt rgbaImg1 ((x + 2) `min` (w1 - 1)) y
+                                          dx0 = xy0 - ax0
+                                          dx1 = ax10 - xy0
+                                          dx2 = ax20 - ax10
+                                          gm0 = dx0
+                                          gm1 = dx1
+                                          gm2 = dx2
+                                      in  gm1 >= max gm0 gm2 ? pixelAt rgbaImg1 x y $ PixelRGBA8 0 0 0 255                  
+
+                               -- vertical line
+                               pix2 = let ax0 =  pixelIntent $ pixelAt rgbaImg1 x ((y - 1) `max` 0)
+                                          xy0 =  pixelIntent $ pixelAt rgbaImg1 x y
+                                          ax10 =  pixelIntent $ pixelAt rgbaImg1 x ((y + 1) `min` (h1 - 1))
+                                          ax20 =  pixelIntent $ pixelAt rgbaImg1 x ((y + 2) `min` (h1 - 1)) 
+                                          dx0 = xy0 - ax0
+                                          dx1 = ax10 - xy0
+                                          dx2 = ax20 - ax10
+                                          gm0 = dx0
+                                          gm1 = dx1
+                                          gm2 = dx2
+                                      in  gm1 >= max gm0 gm2 ? pixelAt rgbaImg1 x y $ PixelRGBA8 0 0 0 255
+                  
+                               beta = atan (rf gy/rf gx)
+                           in  case abs $ beta of
+                                     e | pi/5 <= atan e && atan e <= (pi/4 + 0.0000001) -> pix0  -- 45
+                                       | gy < 0.00001 && gx > 0                      -> pix1  -- 0
+                                       | gx < 0.00001 && gy > 0                      -> pix2  -- 90
+                                       | otherwise                                   -> PixelRGBA8 0 0 0 255
+                  )
+                  w1
+                  h1
+  
 
   {-
-  -- Genrate new image by blending pixel-by-pixel
   let newImg1 = generateImage 
-                  -- (\x y -> intensityPixel $ pixelAt rgbaImg1 x y) 
                   (\x y -> let p0 = pixelAt rgbaImg1 x y; p1 = pixelAt rgbaImg1 (x + 1) y  in gradientMag p0 p1) 
                   (w1 - 1) 
                   h1
   -}
-  
+  {-
   let newImg1 = generateImage 
                   -- (\x y -> intensityPixel $ pixelAt rgbaImg1 x y) 
                   (\x y -> let p0 = pixelAt rgbaImg1_rot x y; p1 = pixelAt rgbaImg1_rot (x + 1) y  in gradientMag p0 p1) 
                   (w1' - 1)
                   h1'
   let rgbaImg1_rot_left = rotateLeft90 newImg1
+  -}
+  
   -- Write the resulting image to output path
-  -- writePng fp2 newImg1
-  writePng fp2 rgbaImg1_rot_left
+  writePng fp2 newImg1
+  -- writePng fp2 rgbaImg1_rot_left
   
 {-|
 blendPixel :: Float -> PixelRGBA8 -> PixelRGBA8 -> PixelRGBA8
@@ -512,6 +620,19 @@ blendPixel alpha (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) =
 blendPixel :: Float -> PixelRGBA8 -> PixelRGBA8 -> PixelRGBA8
 blendPixel alpha (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) = PixelRGBA8 r0 g0 b0 a0
 
+
+{-|
+  KEY: pixel intensity
+
+  @
+    rI = 0.299
+    gI = 0.587
+    bI = 1 - rI - gI
+
+    intensityPixel :: PixelRGBA8 -> PixelRGBA8
+    intensityPixel (PixelRGBA8 r0 g0 b0 a0) = PixelRGBA8 (round $ rI * r0' + gI * g0' + bI * b0') 0 0 a0 
+  @
+-}
 intensityPixel :: PixelRGBA8 -> PixelRGBA8
 intensityPixel (PixelRGBA8 r0 g0 b0 a0) = PixelRGBA8 (round $ rI * r0' + gI * g0' + bI * b0') 0 0 a0 
   where
@@ -521,6 +642,16 @@ intensityPixel (PixelRGBA8 r0 g0 b0 a0) = PixelRGBA8 (round $ rI * r0' + gI * g0
     rI = 0.299
     gI = 0.587
     bI = 1 - rI - gI
+  
+pixelIntent :: PixelRGBA8 -> Float
+pixelIntent (PixelRGBA8 r0 g0 b0 a0) = rI * r0' + gI * g0' + bI * b0'
+  where
+    r0' = rf r0
+    g0' = rf g0
+    b0' = rf b0
+    rI = 0.299
+    gI = 0.587
+    bI = 1 - rI - gI  
 
 {-|
   KEY: gradient magnitude
@@ -537,9 +668,29 @@ gradientMag (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) = PixelRGBA8 diff 
     rI = 0.299
     gI = 0.587
     bI = 1 - rI - gI 
-    inten0 = round $ sqrt $ rI * r0' + gI * g0' + bI * b0'
-    inten1 = round $ sqrt $ rI * r1' + gI * g1' + bI * b1'
+    inten0 = sqrt $ rI * r0' + gI * g0' + bI * b0'
+    inten1 = sqrt $ rI * r1' + gI * g1' + bI * b1'
+    m = maxBound :: (PixelBaseComponent PixelRGBA8)
+    diff = round $ inten1 - inten0
+  
+gradient :: PixelRGBA8 -> PixelRGBA8 -> Float
+gradient (PixelRGBA8 r0 g0 b0 a0) (PixelRGBA8 r1 g1 b1 a1) = diff
+  where
+    r0' = rf r0
+    g0' = rf g0
+    b0' = rf b0
+    r1' = rf r1
+    g1' = rf g1
+    b1' = rf b1
+    rI = 0.299
+    gI = 0.587
+    bI = 1 - rI - gI 
+    inten0 = sqrt $ rI * r0' + gI * g0' + bI * b0'
+    inten1 = sqrt $ rI * r1' + gI * g1' + bI * b1'
+    m = maxBound :: (PixelBaseComponent PixelRGBA8)
     diff = inten1 - inten0
+
+
 
 addp ::
   forall a.
@@ -620,7 +771,6 @@ mainX = do
           ) [0..10]
 
     print "ok"
-  
 
 main :: IO ()
 main = do
@@ -646,14 +796,10 @@ main = do
   writePng "asteroid_s_5_h.png" imgH 
   saveImage tranImage "asteroid_s_5.png" "xx.png" 
   saveImage rotateRight90 "asteroid_s_5.png" "xx90.png"
-  intensity "bigboss.png" "intensity_y.png"
   mergeSameImageX 0.1 "intensity.png" "intensity_y.png" "int.png"
   saveImage (imagePadRight 100) "ex4_x.png" "ex4_xx.png"
   saveImage (imagePadDown 100)  "ex4_x.png"  "ex4_xxx.png"
-
-  img1 <- readImage "ex4.png" 
-  let rgbaImg1 = convertRGBA8 (either error id img1)
-  let (w1, h1) = (imageWidth rgbaImg1, imageHeight rgbaImg1)
+  (w1, h1) <- imageSize "ex4.png"
   -- saveImage (scaleBilinear (div w1 10) (div h1 10)) "ex4.png" "ex4_scale1.png"
   -- saveImage (scaleBilinear (w1 * 3) (h1 * 3)) "ex4.png" "ex4_scale1.png"
   let px = addp (PixelRGBA8 1 2 3 4) (PixelRGBA8 10 20 30 40) 
@@ -661,4 +807,40 @@ main = do
   -- saveImage (scaleImage (div w1 4) (div h1 4)) "ex4.png" "ex4_bilinear.png"
   -- saveImage (scaleImage (div w1 10) (div h1 10)) "ex4.png" "ex4_bilinear.png"
   saveImage (scaleImage (round $ rf $ fi w1 * rf 0.9) (round $ rf $ fi h1 * rf 1.9)) "ex4.png" "ex4_bilinear.png"
-  
+  print "cannyEdge"
+  -- cannyEdge "small.png" "small_canny.png"
+  -- cannyEdge "ex4.png" "ex4_canny.png"
+  cannyEdge "output_image.png" "bigboss_canny_y1.png"
+  -- cannyEdge "bigboss_grayscale.png" "bigboss_canny_y.png"
+  saveImage toGrayScale "bigboss.png" "bigboss_grayscale1.png"
+
+-- Grayscale conversion formula
+rgbToGrayscale :: Pixel8 -> Pixel8 -> Pixel8 -> Pixel8
+rgbToGrayscale r g b = round $ 0.299 * fromIntegral r + 0.587 * fromIntegral g + 0.114 * fromIntegral b
+
+-- Function to convert an RGBA image to grayscale, preserving the alpha channel
+convertToGrayscale :: Image PixelRGBA8 -> Image PixelRGBA8
+convertToGrayscale img = generateImage pixelFunc (imageWidth img) (imageHeight img)
+  where
+    pixelFunc x y =
+      let PixelRGBA8 r g b a = pixelAt img x y
+          gray = rgbToGrayscale r g b
+      in PixelRGBA8 gray gray gray a
+
+-- Main function to read the image, convert, and save it
+mainX0 :: IO ()
+mainX0 = do
+    -- Load the input image
+    eitherImage <- readImage "bigboss.png"
+    
+    case eitherImage of
+      Left err -> putStrLn ("Error loading image: " ++ err)
+      Right dynamicImage -> do
+        -- Convert the image to RGBA8 format
+        let rgbaImage = convertRGBA8 dynamicImage
+        -- Convert to grayscale
+        let grayscaleImage = convertToGrayscale rgbaImage
+        -- Save the output image
+        savePngImage "output_image.png" (ImageRGBA8 grayscaleImage)
+        putStrLn "Image converted to grayscale successfully!"
+
