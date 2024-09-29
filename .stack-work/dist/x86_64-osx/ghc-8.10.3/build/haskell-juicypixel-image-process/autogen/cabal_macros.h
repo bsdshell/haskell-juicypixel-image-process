@@ -66,6 +66,17 @@
   (major1) == 3 && (major2) == 3 && (minor) <= 5)
 #endif /* MIN_VERSION_JuicyPixels */
 
+/* package JuicyPixels-extra-0.4.1 */
+#ifndef VERSION_JuicyPixels_extra
+#define VERSION_JuicyPixels_extra "0.4.1"
+#endif /* VERSION_JuicyPixels_extra */
+#ifndef MIN_VERSION_JuicyPixels_extra
+#define MIN_VERSION_JuicyPixels_extra(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  4 || \
+  (major1) == 0 && (major2) == 4 && (minor) <= 1)
+#endif /* MIN_VERSION_JuicyPixels_extra */
+
 /* package OpenGL-3.0.3.0 */
 #ifndef VERSION_OpenGL
 #define VERSION_OpenGL "3.0.3.0"
@@ -1200,7 +1211,7 @@
 #endif /* MIN_TOOL_VERSION_runghc */
 
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "haskell-juicypixel-image-process-0.1.0.0-4YgIbhKrU38KFL8it0Lz1t-haskell-juicypixel-image-process"
+#define CURRENT_COMPONENT_ID "haskell-juicypixel-image-process-0.1.0.0-DE9DgKqkEZqK4kqj95yRrN-haskell-juicypixel-image-process"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

@@ -30,7 +30,7 @@ version = Version [0,1,0,0] []
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
 
 bindir     = "/Users/aaa/myfile/github/haskell-juicypixel-image-process/.stack-work/install/x86_64-osx/2c84aec8038c668e8bb96f9fd6ee56eaa461166f8e8398f2123e0b8dcc0931d1/8.10.3/bin"
-libdir     = "/Users/aaa/myfile/github/haskell-juicypixel-image-process/.stack-work/install/x86_64-osx/2c84aec8038c668e8bb96f9fd6ee56eaa461166f8e8398f2123e0b8dcc0931d1/8.10.3/lib/x86_64-osx-ghc-8.10.3/haskell-juicypixel-image-process-0.1.0.0-4YgIbhKrU38KFL8it0Lz1t-haskell-juicypixel-image-process"
+libdir     = "/Users/aaa/myfile/github/haskell-juicypixel-image-process/.stack-work/install/x86_64-osx/2c84aec8038c668e8bb96f9fd6ee56eaa461166f8e8398f2123e0b8dcc0931d1/8.10.3/lib/x86_64-osx-ghc-8.10.3/haskell-juicypixel-image-process-0.1.0.0-DE9DgKqkEZqK4kqj95yRrN-haskell-juicypixel-image-process"
 dynlibdir  = "/Users/aaa/myfile/github/haskell-juicypixel-image-process/.stack-work/install/x86_64-osx/2c84aec8038c668e8bb96f9fd6ee56eaa461166f8e8398f2123e0b8dcc0931d1/8.10.3/lib/x86_64-osx-ghc-8.10.3"
 datadir    = "/Users/aaa/myfile/github/haskell-juicypixel-image-process/.stack-work/install/x86_64-osx/2c84aec8038c668e8bb96f9fd6ee56eaa461166f8e8398f2123e0b8dcc0931d1/8.10.3/share/x86_64-osx-ghc-8.10.3/haskell-juicypixel-image-process-0.1.0.0"
 libexecdir = "/Users/aaa/myfile/github/haskell-juicypixel-image-process/.stack-work/install/x86_64-osx/2c84aec8038c668e8bb96f9fd6ee56eaa461166f8e8398f2123e0b8dcc0931d1/8.10.3/libexec/x86_64-osx-ghc-8.10.3/haskell-juicypixel-image-process-0.1.0.0"
